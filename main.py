@@ -1,3 +1,10 @@
+from pathlib import Path
+
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from webdriver_manager.firefox import GeckoDriverManager
+
+
 def get_promoted_tweets() -> list:
     raise NotImplementedError
 
@@ -21,10 +28,12 @@ def trigger_infinite_scroll():
 
 def main():
     # Set up web driver
+    driver = webdriver.Firefox(service=FirefoxService(GeckoDriverManager().install()))
 
     # Load twitter timeline
     # For You or Followed doesn't matter; promoted tweets are displayed on each.
     # Just make sure to disable Ad Block before loading
+    driver.get("https://twitter.com/home")
 
     # Main Loop
 
