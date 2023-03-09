@@ -3,17 +3,24 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
 
 from dotenv import load_dotenv
 
 
-def get_promoted_tweets() -> list:
-    raise NotImplementedError
+def get_promoted_tweets(driver: webdriver) -> list:
+    tweets = driver.find_elements(By.CSS_SELECTOR, "article[data-testid='tweet']")
+
+    return filter(is_promoted, tweets)
 
 
 def is_promoted(tweet) -> bool:
-    raise NotImplementedError
+    spans = tweet.find_elements(By.CSS_SELECTOR, "span")
+
+    return any("Promoted" in span.text for span in spans)
 
 
 def click_ellipse_menu(tweet):
@@ -42,17 +49,23 @@ def main(profile_path: str, username: str, password: str):
     # Just make sure to disable Ad Block before loading
     # NOTE: This uses a pre-made profile that is already logged into Twitter. Might make the ability to log in on a base profile, but we'll see.
     driver.get("https://twitter.com/home")
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "article[data-testid='tweet']")
+        )
+    )
 
     # Main Loop
+    while True:
+        # Get new Promoted Tweets
+        tweets = get_promoted_tweets(driver)
+        print(list(tweets))
+        # Click Not Interested
+        # Log Success or Failure
+        # Trigger infinite scroll
+        # Repeat until interrupted
 
-    # Get new Promoted Tweets
-    # Click Not Interested
-    # Log Success or Failure
-    # Trigger infinite scroll
-    # Repeat until interrupted
-
-    # NOTE: May want to periodically refresh the page to avoid memory issues from loading too many tweets
-    pass
+        # NOTE: May want to periodically refresh the page to avoid memory issues from loading too many tweets
 
 
 if __name__ == "__main__":
