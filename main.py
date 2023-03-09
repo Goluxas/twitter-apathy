@@ -4,17 +4,19 @@ from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
-
 from dotenv import load_dotenv
+from loguru import logger
 
 
-def get_promoted_tweets(driver: webdriver) -> list:
+def get_tweets(driver: webdriver) -> list:
     tweets = driver.find_elements(By.CSS_SELECTOR, "article[data-testid='tweet']")
 
-    return filter(is_promoted, tweets)
+    return tweets
 
 
 def is_promoted(tweet) -> bool:
@@ -58,12 +60,42 @@ def main(profile_path: str, username: str, password: str):
     # Main Loop
     while True:
         # Get new Promoted Tweets
-        tweets = get_promoted_tweets(driver)
-        print(list(tweets))
-        # Click Not Interested
-        # Log Success or Failure
-        # Trigger infinite scroll
-        # Repeat until interrupted
+        tweets = get_tweets(driver)
+        tweet_count = len(tweets)
+        promoted_tweets = list(filter(is_promoted, tweets))
+
+        logger.debug(
+            f"Found {tweet_count} tweets and {len(promoted_tweets)} promoted tweets."
+        )
+
+        for tweet in promoted_tweets:
+            print("in this loop")
+            # Get the location of the ellipse menu
+            menu = tweet.find_element(By.CSS_SELECTOR, 'div[data-testid="caret"]')
+            menu_y = menu.location["y"]
+
+            # Scroll to tweet
+            actions = ActionChains(driver)
+            actions.scroll_by_amount(delta_x=0, delta_y=menu_y)
+            actions.move_to_element(menu)
+            actions.perform()
+
+            menu.click()
+
+            actions.click()
+            actions.perform()
+            # Click Not Interested
+
+            # Log Success or Failure
+            # Thanks. Twitter will use this to make your timeline better.
+            # Trigger infinite scroll
+            # Repeat until interrupted
+
+        # Presumably at this point there are no more visible Promoted tweets
+        # Scroll to the bottom and get a fresh set to examine
+        logger.debug("All tweets processed, triggering infinite scroll.")
+        driver.find_element(By.TAG_NAME, "html").send_keys(Keys.END)
+        WebDriverWait(driver, 10).until(lambda x: len(get_tweets(x)) > tweet_count)
 
         # NOTE: May want to periodically refresh the page to avoid memory issues from loading too many tweets
 
