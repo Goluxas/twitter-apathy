@@ -35,9 +35,13 @@ def get_not_interested_element(driver):
 
 
 def check_for_success(driver):
+    # NOTE: After more than one ad has been marked, will this still work?
+    article = driver.find_element(By.CSS_SELECTOR, 'article[role="article"][tabindex="-1"]')
+    spans = article.find_elements(By.TAG_NAME, "span")
+
     # Success message:
     # Thanks. Twitter will use this to make your timeline better.
-    pass
+    return any(span.text.upper == "THANKS. TWITTER WILL USE THIS TO MAKE YOUR TIMELINE BETTER." for span in spans)
 
 
 def main(profile_path: str, username: str, password: str):
@@ -90,8 +94,10 @@ def main(profile_path: str, username: str, password: str):
 
             # Log Success or Failure
             if check_for_success(driver):
-                logger.info("Another uninteresting ad")
+                logger.info("Another uninteresting ad has been squelched")
                 boring_ads += 1
+            else:
+                logger.info("Something went wrong and the ad ignored being told it was uninteresting.")
 
         # Presumably at this point there are no more visible Promoted tweets
         # Scroll to the bottom and get a fresh set to examine
