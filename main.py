@@ -26,59 +26,52 @@ def is_promoted(tweet) -> bool:
     return any("Promoted" in span.text for span in spans)
 
 
-def click_ellipse_menu(tweet):
-    raise NotImplementedError
-
-
-def click_not_interested():
+def get_not_interested_element(driver):
     """The ellipse menu opens outside the tweet scope, so this grabs it and clicks from the global page view"""
-    raise NotImplementedError
+    dropdown = driver.find_element(By.CSS_SELECTOR, "div[data-testid='Dropdown']")
+    spans = dropdown.find_elements(By.TAG_NAME, "span")
+
+    return [span for span in spans if span.text.upper() == "NOT INTERESTED IN THIS AD"][0]
 
 
-def trigger_infinite_scroll():
-    raise NotImplementedError
+def check_for_success(driver):
+    # Success message:
+    # Thanks. Twitter will use this to make your timeline better.
+    pass
 
 
 def main(profile_path: str, username: str, password: str):
     # Set up web driver
     options = webdriver.FirefoxOptions()
     options.add_argument("--profile=" + profile_path)
-    driver = webdriver.Firefox(
-        service=FirefoxService(GeckoDriverManager().install()), options=options
-    )
+    driver = webdriver.Firefox(service=FirefoxService(GeckoDriverManager().install()), options=options)
 
     # Load twitter timeline
     # For You or Followed doesn't matter; promoted tweets are displayed on each.
     # Just make sure to disable Ad Block before loading
     # NOTE: This uses a pre-made profile that is already logged into Twitter. Might make the ability to log in on a base profile, but we'll see.
     driver.get("https://twitter.com/home")
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "article[data-testid='tweet']")
-        )
-    )
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "article[data-testid='tweet']")))
 
     # Main Loop
+    # A count of ads marked not interested
+    boring_ads = 0
     while True:
         # Get new Promoted Tweets
         tweets = get_tweets(driver)
         tweet_count = len(tweets)
         promoted_tweets = list(filter(is_promoted, tweets))
 
-        logger.debug(
-            f"Found {tweet_count} tweets and {len(promoted_tweets)} promoted tweets."
-        )
+        logger.debug(f"Found {tweet_count} tweets and {len(promoted_tweets)} promoted tweets.")
 
         for tweet in promoted_tweets:
             print("in this loop")
             # Get the location of the ellipse menu
             menu = tweet.find_element(By.CSS_SELECTOR, 'div[data-testid="caret"]')
             menu_y = menu.location["y"]
-            current_scroll = driver.execute_script(
-                "return window.pageYOffset + window.innerHeight"
-            )
+            current_scroll = driver.execute_script("return window.pageYOffset + window.innerHeight")
             # TODO: replace 50 with menu element height or more
-            to_move = menu_y - current_scroll + 50
+            to_move = menu_y - current_scroll + 100
 
             # Scroll to tweet
             actions = ActionChains(driver)
@@ -90,13 +83,15 @@ def main(profile_path: str, username: str, password: str):
 
             # Click Not Interested
             # Next TODO: Popup menu may go above this, so select the Not interested in this ad <span> and move to it
-            actions.move_to_element(menu)
-            actions.click()
+            not_interested = get_not_interested_element(driver)
+            # actions.move_to_element(not_interested)
+            actions.click(not_interested)
             actions.perform()
 
             # Log Success or Failure
-            # Success message:
-            # Thanks. Twitter will use this to make your timeline better.
+            if check_for_success(driver):
+                logger.info("Another uninteresting ad")
+                boring_ads += 1
 
         # Presumably at this point there are no more visible Promoted tweets
         # Scroll to the bottom and get a fresh set to examine
